@@ -1,0 +1,66 @@
+# README for mesa
+
+
+Notes for ppc64 Mesa Overlay:
+
+  This configuration belongs to the CRUX ppc64 overlay and provides
+  a Mesa build adapted for generic 64-bit PowerPC systems (POWER4 and above).
+  It enables a broad set of Gallium drivers while maintaining compatibility
+  with both legacy and more modern GPUs available on ppc64 platforms.
+
+  Vulkan, Intel-specific features, and experimental components are excluded
+  by default, as they are either unsupported or unreliable across the wide
+  range of ppc64 hardware (especially big-endian systems such as Power Mac G5).
+
+  Please refer to the upstream xorg/mesa/README.md for additional context
+  and general Mesa build information.
+
+
+User-defined build options:
+
+  b_lto          : false        # Disable LTO for better portability across toolchains
+  b_pie          : true         # Enable PIE (default and safe on 64-bit)
+  egl            : enabled      # Enable EGL for modern rendering paths
+  gallium-drivers: nouveau,r300,r600,radeonsi,svga,virgl,i915,swrast
+                                # Broad coverage: NVIDIA, AMD (old/new), Intel, virtualization, and software fallback
+  gallium-va     : conditional  # Enabled only if libva is present
+  gbm            : enabled      # Enable GBM for EGL/DRI integration
+  gles1          : disabled     # Deprecated and unnecessary
+  gles2          : enabled      # Required for modern lightweight applications
+  glvnd          : enabled      # Vendor-neutral GL dispatch
+  glx            : dri          # Use DRI-based GLX for X11
+  llvm           : enabled      # Required for llvmpipe and shader compilation
+  platforms      : x11[,wayland]# X11 by default; Wayland enabled if available
+  shared-llvm    : enabled      # Link dynamically against system LLVM
+  video-codecs   : all          # Enabled, but depends on optional runtime components
+  vulkan-drivers :              # Disabled (not broadly supported on ppc64)
+  vulkan-layers  :              # Disabled
+
+
+Pkgfile notes:
+
+  The Pkgfile retains a small set of conditional checks for optional
+  dependencies to remain flexible while avoiding unnecessary complexity.
+  Features such as VA-API, sensors, or Wayland are enabled only when the
+  corresponding libraries are present.
+
+  Vulkan support and Intel-specific features (such as ray tracing) have
+  been explicitly removed, as they are not generally applicable to ppc64
+  systems and may introduce build or runtime instability.
+
+  While multiple Gallium drivers are enabled, not all of them will be
+  relevant on every system. This approach ensures the package remains
+  broadly usable across different ppc64 configurations without requiring
+  rebuilds for specific hardware.
+
+
+
+Summary:
+
+  - Targets 64-bit PowerPC systems (POWER4 and above, big-endian).
+  - Designed for compatibility with legacy PowerPC hardware such as G5.
+  - Excludes Vulkan and Intel-specific features for stability.
+  - Provides a broad set of Gallium drivers for NVIDIA, ATI/AMD, Intel, and virtual GPUs.
+  - Includes software rendering fallback via llvmpipe (through LLVM).
+  - Focuses on X11/DRI rendering paths with optional Wayland support.
+  - Aims for a balanced Mesa build that prioritizes compatibility and maintainability.
