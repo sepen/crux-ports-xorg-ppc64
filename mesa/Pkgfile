@@ -2,29 +2,37 @@
 # URL: https://www.mesa3d.org/
 # Maintainer: CRUX Xorg Team, xorg-ports at crux dot nu
 # Arch Maiintainer: Jose Beneyto, sepen at crux-arm dot nu
-# Depends on: elfutils libdrm libglvnd llvm python3-mako python3-pyyaml xorg-libxdamage xorg-libxrandr xorg-libxshmfence xorg-libxvmc xorg-libxxf86vm
-# Optional: directx-headers glslang libclc libdisplay-info libunwind libva lm_sensors wayland-protocols
+# Depends on: elfutils libdrm libglvnd libva llvm python3-mako python3-pyyaml xorg-libxdamage xorg-libxrandr xorg-libxshmfence xorg-libxvmc xorg-libxxf86vm glslang
+# Optional: libclc libdisplay-info libunwind lm_sensors vulkan-loader spirv-llvm-translator wayland-protocols
 
 name=mesa
-version=26.0.3
+version=26.1.1
 release=1
 source=(https://archive.mesa3d.org/$name-$version.tar.xz)
 
 build() {
-    prt-get isinst directx-headers && PKGMK_MESA_GALLIUM+='d3d12,'
-    prt-get isinst libclc && PKGMK_MESA_GALLIUM+='crocus,iris,'
-    prt-get isinst libdisplay-info && PKGMK_MESA+=' -D display-info=enabled'
-    prt-get isinst libunwind && PKGMK_MESA+=' -D libunwind=enabled'
-    prt-get isinst libva && PKGMK_MESA+=' -D gallium-va=enabled' || PKGMK_MESA+=' -D gallium-va=disabled'
-    prt-get isinst lm_sensors && PKGMK_MESA+=' -D lmsensors=enabled'
-    prt-get isinst wayland-protocols && PKGMK_MESA_PLATFORMS+='wayland'
-    ## for future references
-    #prt-get isinst xorg-libxdamage xorg-libxrandr xorg-libxshmfence xorg-libxvmc xorg-libxxf86vm && PKGMK_MESA_PLATFORMS+=',x11'
-    PKGMK_MESA_PLATFORMS+=',x11'
+    prt-get isinst libdisplay-info && PKGMK_MESA_OPTS+=' -D display-info=enabled'
+    prt-get isinst libunwind && PKGMK_MESA_OPTS+=' -D libunwind=enabled'
+    prt-get isinst lm_sensors && PKGMK_MESA_OPTS+=' -D lmsensors=enabled'
+
+    PKGMK_MESA_GALLIUM='nouveau,r300,r600,radeonsi,svga,virgl,i915,llvmpipe'
+    prt-get isinst directx-headers && PKGMK_MESA_GALLIUM+=',d3d12'
+    prt-get isinst libclc && PKGMK_MESA_GALLIUM+=',crocus,iris'
+
+    PKGMK_MESA_PLATFORMS='x11'
+    prt-get isinst wayland-protocols && PKGMK_MESA_PLATFORMS+=',wayland'
+
+    if prt-get isinst vulkan-loader; then
+      PKGMK_MESA_GALLIUM+=',zink'
+      PKGMK_VULKAN_DRIVERS+='amd,virtio' PKGMK_VULKAN_LAYERS+='overlay'
+      prt-get isinst cbindgen rust-bindgen spirv-llvm-translator && PKGMK_MESA_VULKAN_DRIVERS+=',nouveau'
+      prt-get isinst libclc python3-ply lua && PKGMK_MESA_VULKAN_DRIVERS+=',intel' PKGMK_MESA_VULKAN_LAYERS+=',intel-nullhw'
+      prt-get isinst libclc && PKGMK_MESA_VULKAN_DRIVERS+=',intel_hasvk'
+    fi
 
     printf '%s' "$version-$release" > $name-$version/VERSION
 
-    meson setup build $name-$version $PKGMK_MESA \
+    meson setup build $name-$version $PKGMK_MESA_OPTS \
         --prefix=/usr \
         --sysconfdir=/etc \
         --buildtype=plain \
@@ -37,12 +45,13 @@ build() {
         -D gles1=disabled \
         -D gles2=enabled \
         -D glx=dri \
-        -D gallium-drivers=${PKGMK_MESA_GALLIUM}nouveau,r300,r600,radeonsi,svga,virgl,i915,llvmpipe \
-        -D platforms=${PKGMK_MESA_PLATFORMS#,} \
+        -D gallium-drivers=${PKGMK_MESA_GALLIUM} \
+        -D gallium-va=enabled \
+        -D platforms=${PKGMK_MESA_PLATFORMS} \
         -D video-codecs=all \
         -D glvnd=enabled \
-        -D vulkan-drivers= \
-        -D vulkan-layers=
+        -D vulkan-drivers=${PKGMK_VULKAN_DRIVERS} \
+        -D vulkan-layers=${PKGMK_VULKAN_LAYERS}
 
     meson compile -C build -j ${JOBS:-1}
     DESTDIR=$PKG meson install -C build
